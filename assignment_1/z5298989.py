@@ -66,6 +66,7 @@ def question_2(df1):
     # Keep the following columns in the resultant dataframe (remove the rest of columns from the result dataset):
     # 'id', title', 'popularity', 'cast', 'crew', 'budget', 'genres', 'original_language', 'production_companies', 'production_countries', 'release_date', 'revenue', 'runtime', 'spoken_languages', 'vote_average', 'vote_count'
     # https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.filter.html
+    # Using Filters as it is more readable than inplace syntax
     df2 = df1.filter(["id", "title", "popularity", "cast", "crew", "budget", "genres", "original_language", "production_companies", "production_countries", "release_date", "revenue", "runtime", "spoken_languages", "vote_average", "vote_count"])
 
     log("QUESTION 2", output_df=df2, other=(len(df2.columns), sorted(df2.columns)))
@@ -150,7 +151,12 @@ def question_6(df5):
     #################################################
     # Normalize the " popularity " column by scaling between 0 to 100.
     # The least popular movie should be 0 and the most popular one must be 100. It is a float number.
+    max_value = df5["popularity"].max()
+    min_value = df5["popularity"].min()
 
+    df6 = df5
+    # https://stats.stackexchange.com/questions/281162/scale-a-number-between-a-range/281164
+    df6["popularity"] = df6["popularity"].apply(lambda val: ((val - min_value)/(max_value-min_value))*(100-0)+0)
 
     log("QUESTION 6", output_df=df6, other=(df6['popularity'].min(), df6['popularity'].max(), df6['popularity'].mean()))
     return df6
@@ -167,6 +173,11 @@ def question_7(df6):
     #################################################
     # Your code goes here ...
     #################################################
+    df7 = df6
+    # Change the data type of the "popularity" column to (int16).
+    # https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.astype.html
+    df7 = df7.astype({'popularity': 'int16'})
+
 
     log("QUESTION 7", output_df=df7, other=df7['popularity'].dtype)
     return df7
@@ -261,14 +272,14 @@ def question_13(df10):
 
 if __name__ == "__main__":
     # TODO Restore
-    #df1 = question_1("movies.csv", "credits.csv")
-    df1 = question_1("mov1.csv", "cred1.csv")
+    df1 = question_1("movies.csv", "credits.csv")
+    #df1 = question_1("mov1.csv", "cred1.csv")
     df2 = question_2(df1)
     df3 = question_3(df2)
     df4 = question_4(df3)
     df5 = question_5(df4)
-    # df6 = question_6(df5)
-    # df7 = question_7(df6)
+    df6 = question_6(df5)
+    df7 = question_7(df6)
     # df8 = question_8(df7)
     # movies = question_9(df8)
     # df10 = question_10(df8)
