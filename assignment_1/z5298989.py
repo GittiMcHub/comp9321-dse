@@ -15,6 +15,25 @@ def success_impact_function(row):
     return (row.revenue - row.budget) / row.budget
 
 
+def cast_characters_json_to_sorted_csv(json_str: str):
+    print("JSON: " + json_str)
+
+    # 'name': "Steve 'Spaz' Williams",
+    # 'Obi-Wan "Ben" Kenobi' => 'Obi-Wan \"Ben\" Kenobi'
+    json_str = json_str.replace("\"", "\\\"")
+
+    # TODO
+
+    # ' is not json, so it must be " to encapsulate fields
+    json_str = json_str.replace("\'", "\"")
+    json_str = json_str.replace("None", "\"null\"")
+    json_array = json.loads(json_str)
+    char_list = []
+    for char_json in json_array:
+        char_list.append(char_json["character"])
+    return "".join(sorted(char_list))
+
+
 def log(question, output_df, other):
     print("--------------- {}----------------".format(question))
     if other is not None:
@@ -178,7 +197,6 @@ def question_7(df6):
     # https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.astype.html
     df7 = df7.astype({'popularity': 'int16'})
 
-
     log("QUESTION 7", output_df=df7, other=df7['popularity'].dtype)
     return df7
 
@@ -194,6 +212,13 @@ def question_8(df7):
     #################################################
     # Your code goes here ...
     #################################################
+    # Clean the "cast" column by converting the complex value (JSONs) to a comma separated value.
+    # The cleaned "cast" column should be a comma-separated value of alphabetically sorted characters
+    # (e.g., Angela, Athena, Betty, Chester Rush ) .
+    # NOTE: keep unusual characters e.g., '(uncredited)' as they are; no need for further cleansing.
+
+    df8 = df7
+    df8["cast"] = df8["cast"].apply(cast_characters_json_to_sorted_csv)
 
     log("QUESTION 8", output_df=df8, other=df8["cast"].head(10).values)
     return df8
@@ -280,7 +305,7 @@ if __name__ == "__main__":
     df5 = question_5(df4)
     df6 = question_6(df5)
     df7 = question_7(df6)
-    # df8 = question_8(df7)
+    df8 = question_8(df7)
     # movies = question_9(df8)
     # df10 = question_10(df8)
     # question_11(df10)
