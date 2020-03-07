@@ -11,6 +11,9 @@ studentid = os.path.basename(sys.modules[__name__].__file__)
 #################################################
 # Your personal methods can be here ...
 #################################################
+def success_impact_function(row):
+    return (row.revenue - row.budget) / row.budget
+
 
 def log(question, output_df, other):
     print("--------------- {}----------------".format(question))
@@ -119,7 +122,15 @@ def question_5(df4):
     #################################################
     # Your code goes here ...
     #################################################
-    # assume that there is a ranking scheme for movies defined by " (revenue - budget)/budget ". Add a new column for the dataframe, and name it "success_impact", and calculate it for each movie based on the given formula.
+    # assume that there is a ranking scheme for movies defined by
+    # (revenue - budget)/budget
+    # Add a new column for the dataframe, and name it "success_impact",
+    # and calculate it for each movie based on the given formula.
+    # https://stackoverflow.com/a/46570641
+    df5 = df4
+    success_impact_column = df5.apply(success_impact_function, axis=1)
+    df5 = df5.assign(success_impact=success_impact_column.values)
+
 
     log("QUESTION 5", output_df=df5,
         other=(df5['success_impact'].min(), df5['success_impact'].max(), df5['success_impact'].mean()))
@@ -137,6 +148,9 @@ def question_6(df5):
     #################################################
     # Your code goes here ...
     #################################################
+    # Normalize the " popularity " column by scaling between 0 to 100.
+    # The least popular movie should be 0 and the most popular one must be 100. It is a float number.
+
 
     log("QUESTION 6", output_df=df6, other=(df6['popularity'].min(), df6['popularity'].max(), df6['popularity'].mean()))
     return df6
@@ -252,7 +266,7 @@ if __name__ == "__main__":
     df2 = question_2(df1)
     df3 = question_3(df2)
     df4 = question_4(df3)
-    # df5 = question_5(df4)
+    df5 = question_5(df4)
     # df6 = question_6(df5)
     # df7 = question_7(df6)
     # df8 = question_8(df7)
