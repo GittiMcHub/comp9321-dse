@@ -16,19 +16,19 @@ def success_impact_function(row):
 
 
 def cast_characters_json_to_sorted_csv(json_str: str):
-    print(json_str)
     # Convert to real json:  'character' => "character"
     json_str = json_str.replace("'", "\"")
+    # Replace placeholders
     json_str = json_str.replace("INTEXT_DOUBLEQUOTE", "\\\"")
     json_str = json_str.replace("INTEXT_SINGLEQUOTE", "'")
     json_str = json_str.replace("None", "\"null\"")
+    # print(json_str)
 
-    print(json_str)
     json_array = json.loads(json_str)
     char_list = []
     for char_json in json_array:
         char_list.append(char_json["character"])
-    return "".join(sorted(char_list))
+    return ", ".join(sorted(char_list))
 
 
 def log(question, output_df, other):
@@ -214,7 +214,46 @@ def question_8(df7):
     # (e.g., Angela, Athena, Betty, Chester Rush ) .
     # NOTE: keep unusual characters e.g., '(uncredited)' as they are; no need for further cleansing.
 
+    # https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.replace.html
+
     df8 = df7
+
+    """The following regex collection will handle these cases:
+        
+        Not JSON Conform 
+         'character': 'Mos Eisley Citizen (special edition)',
+         
+        Double Quoted JSON value
+         'character': ""Mickey Mouse (segment 'The Sorcerer's Apprentice') (voice)"",
+         'name': "Steve 'Spaz' Williams",
+         'character': ""Pianist in 'El Rancho' (uncredited)"",
+         
+        Single Quote in Text or in double quoted JSON Value
+         'character': "Leia's Rebel Escort (uncredited)",
+         'character': ""Rocky Jr.'s Friend"",
+         'character': ""Four Seasons Maître d'"",
+         'character': ""Member of Angel Eyes' Gange""
+         'character': ""'60s Model"",
+         'character': ""Bubba's Great Grandmother"",
+         'character': ""'Fat' Moe Gelly"",
+         'character': ""Little Jack 'L.J.' Byrnes""
+         'character': ""Schwester Mary Stigmata ('Die Pinguin-Tante')"",
+         'character': ""Fight Patron Saying 'I don't know. What's going on?'"",
+         'character': ""Floyd 'D'"",
+         
+        Double Quotes in Text
+         'character': 'Obi-Wan "Ben" Kenobi',
+         
+        Double double Quotes in Text
+         'character': 'Red Four (John ""D"")'
+         'character': '""The Blonde"" in T-Bird',
+         'character': 'Georg ""Schorsi""',
+         'character': 'Alastor ""Mad-Eye"" Moody',
+         
+        Escaping Characters 
+         'character': ""Alastor 'Mad\xadEye' Moody"",
+         'character': 'Old Man Getting Umbrella in ""Singin\' in the Rain"" Number (uncredited)',
+    """
 
     # Fix doubled quotes
     # 'character': 'Red Four (John ""D"")'
