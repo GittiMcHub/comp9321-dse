@@ -221,6 +221,9 @@ def question_8(df7):
     # 'character': ""Bubba's Great Grandmother""
     df8["cast"] = df8["cast"].replace(to_replace=r"\"\"", value=r"\"", regex=True)
 
+    # Fix this monster:  'character': 'Old Man Getting Umbrella in ""Singin\' in the Rain"" Number (uncredited)',
+    df8["cast"] = df8["cast"].replace(to_replace=r"\\'", value=r"'", regex=True)
+
     # Fix a single backslash like 'character': ""Alastor 'Mad\xadEye' Moody"",
     df8["cast"] = df8["cast"].replace(to_replace=r"\\", value=r"\\\\", regex=True)
 
@@ -229,11 +232,11 @@ def question_8(df7):
                                       value=r"INTEXT_SINGLEQUOTE\1INTEXT_SINGLEQUOTE", regex=True)
 
     # Fix intext double quoted word like:  'character': 'Obi-Wan "Ben" Kenobi',
-    df8["cast"] = df8["cast"].replace(to_replace=r"(?<=[\w\s'])\"([\w\s-]+)\"(?=[\w\s()'])",
+    df8["cast"] = df8["cast"].replace(to_replace=r"(?<=[\w\s'])\"([\w\s'-]+)\"(?=[\w\s()'])",
                                       value=r"INTEXT_DOUBLEQUOTE\1INTEXT_DOUBLEQUOTE", regex=True)
 
     # Fix intext single quote like:  'character': "Leia's Rebel Escort (uncredited)",
-    df8["cast"] = df8["cast"].replace(to_replace=r"(?<=[\w\"])'(?=[\w\"\s)])", value="INTEXT_SINGLEQUOTE", regex=True)
+    df8["cast"] = df8["cast"].replace(to_replace=r"(?<=[\w\"\.])'(?=[\w\"\s)])", value="INTEXT_SINGLEQUOTE", regex=True)
 
     df8["cast"] = df8["cast"].apply(cast_characters_json_to_sorted_csv)
 
