@@ -16,17 +16,14 @@ def success_impact_function(row):
 
 
 def cast_characters_json_to_sorted_csv(json_str: str):
-    print("JSON: " + json_str)
-
-    # 'name': "Steve 'Spaz' Williams",
-    # 'Obi-Wan "Ben" Kenobi' => 'Obi-Wan \"Ben\" Kenobi'
-    json_str = json_str.replace("\"", "\\\"")
-
-    # TODO
-
-    # ' is not json, so it must be " to encapsulate fields
-    json_str = json_str.replace("\'", "\"")
+    print(json_str)
+    # Convert to real json:  'character' => "character"
+    json_str = json_str.replace("'", "\"")
+    json_str = json_str.replace("INTEXT_DOUBLEQUOTE", "\\\"")
+    json_str = json_str.replace("INTEXT_SINGLEQUOTE", "'")
     json_str = json_str.replace("None", "\"null\"")
+
+    print(json_str)
     json_array = json.loads(json_str)
     char_list = []
     for char_json in json_array:
@@ -218,6 +215,20 @@ def question_8(df7):
     # NOTE: keep unusual characters e.g., '(uncredited)' as they are; no need for further cleansing.
 
     df8 = df7
+
+    # Fix doubled quotes
+    # 'character': 'Red Four (John ""D"")'
+    # 'character': ""Bubba's Great Grandmother""
+    df8["cast"] = df8["cast"].replace(to_replace=r"\"\"", value=r"\"", regex=True)
+
+    # Fix intext single quoted word like:  'name': "Steve 'Spaz' Williams",
+    df8["cast"] = df8["cast"].replace(to_replace=r"(?<=[\w\s])\'(\w+)\'(?=[\w\s])", value=r"INTEXT_SINGLEQUOTE\1INTEXT_SINGLEQUOTE", regex=True)
+    # Fix intext double quoted word like:  'character': 'Obi-Wan "Ben" Kenobi',
+    df8["cast"] = df8["cast"].replace(to_replace=r"(?<=[\w\s])\"(\w+)\"(?=[\w\s()])",
+                                      value=r"INTEXT_DOUBLEQUOTE\1INTEXT_DOUBLEQUOTE", regex=True)
+    # Fix intext single quote like:  'character': "Leia's Rebel Escort (uncredited)",
+    df8["cast"] = df8["cast"].replace(to_replace=r"(?<=\w)'(?=\w)", value="INTEXT_SINGLEQUOTE", regex=True)
+
     df8["cast"] = df8["cast"].apply(cast_characters_json_to_sorted_csv)
 
     log("QUESTION 8", output_df=df8, other=df8["cast"].head(10).values)
