@@ -429,6 +429,69 @@ def question_13(df10):
     #################################################
     # Your code goes here ...
     #################################################
+    # - (1.5 Marks) Plot a scatter chart with x axis being "vote_average" and y axis being "success_impact".
+    # - (0.5 Marks) Ink bubbles based on the movie language (e.g, English, French);
+    #   In case of having multiple languages for the same movie, you are free to pick any one as you wish.
+    # - (0.5 Marks) Add a legend showing the name of languages and their associated colors.
+    df11 = df10
+
+    # Extract the languages given in the json
+    df11["language_list"] = df11["spoken_languages"].apply(lambda col_val: extract_field_from_json(col_val, "name"))
+    # Method: choose first
+    df11["language_selected"] = df11["language_list"].apply(lambda col_list: col_list[0])
+
+    # Group by language for color map
+    groups = df11[["language_selected", "popularity", "success_impact"]].groupby("language_selected").median()
+    # Manual Color Map
+    color_map = ["#000000", "#ff0000", "#ff8000", "#ffff00", "#80ff00", "#00ff00", "#00ff80", "#00ffff", "#0080ff", "#0000ff", "#7f00ff", "#ff00ff", "#ff007f", "#808080", "#ff6666", "#ffb266", "#ffff66", "#b2ff66", "#66ff66", "#66ffb2", "#66ffff", "#66b2ff", "#6666ff", "#b266ff", "#ff66ff", "#ff66d2", "#c0c0c0", "#ffcccc", "#ffffcc", "#ccffcc", "#ccffff", "#ccccff", "#ffccff"]
+    # Map language to an index of the color map
+    language_to_color_map = {}
+    map_counter = 0
+    for index, row in groups.iterrows():
+        if index not in language_to_color_map:
+            language_to_color_map.update({index: map_counter})
+            map_counter = map_counter + 1
+            if map_counter == len(color_map):
+                map_counter = 1
+
+    # Plot Scatter chart
+
+    plt.clf()
+    plt.figure(figsize=(20, 25))
+    # https://matplotlib.org/3.1.0/tutorials/text/text_props.html#text-with-non-latin-glyphs
+    # plt.rcParams['font.sans-serif'] = ['Source Han Sans TW', 'sans-serif']
+
+    # https://matplotlib.org/3.1.1/gallery/lines_bars_and_markers/scatter_with_legend.html
+    fig, ax = plt.subplots()
+    for index, row in df11.iterrows():
+        x, y, = row["success_impact"], row["popularity"],
+        label, color = row["language_selected"], color_map[language_to_color_map[row["language_selected"]]]
+
+        ax.scatter(x, y, c=color, s=4.0, label=label, edgecolors='face')
+
+    # Now "English" is listed many times, we have to reduce the handles to show distinct values
+    # Thre must be a proper way but I couldn't find it...
+    handles, labels = ax.get_legend_handles_labels()
+    indices = []
+    new_labels = []
+    for idx in range(len(labels)):
+        if labels[idx] not in new_labels:
+            indices.append(idx)
+            new_labels.append(labels[idx])
+
+    new_handles = []
+    for idx in indices:
+        new_handles.append(handles[idx])
+
+    # https://matplotlib.org/tutorials/intermediate/legend_guide.html
+    ax.legend(new_handles, new_labels, bbox_to_anchor=(0, -1.1, 1, 1), loc='upper center',
+           ncol=4, mode="expand", frameon=True)
+
+    ax.grid(True)
+
+    fig.subplots_adjust(bottom=0.2)
+
+    plt.show()
 
     plt.savefig("{}-Q13.png".format(studentid))
 
@@ -448,4 +511,4 @@ if __name__ == "__main__":
     df10 = question_10(df8)
     question_11(df10)
     question_12(df10)
-    # question_13(df10)
+    question_13(df10)
