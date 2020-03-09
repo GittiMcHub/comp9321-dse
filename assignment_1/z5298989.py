@@ -371,7 +371,9 @@ def question_11(df10):
             else:
                 genre_dict.update({genre: 1})
 
-    # TODO nice to have: sorted
+    # Reduce overlapping
+    plt.rcParams.update({'font.size': 6})
+
     # https://matplotlib.org/3.1.1/api/_as_gen/matplotlib.pyplot.pie.html
     # https://pyformat.info/
     plt.pie(genre_dict.values(), labels=genre_dict.keys(), autopct='%1.1f%%', pctdistance=1.2, labeldistance=1.3)
@@ -412,6 +414,7 @@ def question_12(df10):
 
     # https://matplotlib.org/3.1.1/api/_as_gen/matplotlib.pyplot.bar.html
     plt.clf()
+    plt.rcParams.update({'font.size': 10})
     plt.figure(figsize=(15, 10))
     plt.xticks(rotation=90)
     plt.bar(sorted(country_dict.keys()), sorted_values)
@@ -436,15 +439,19 @@ def question_13(df10):
     # - (0.5 Marks) Add a legend showing the name of languages and their associated colors.
     df11 = df10
 
+    # Switching to original_language to avoid font display issues
+    # Allowed from Mohammadali Yaghoubzadehfard
+    # Mon Mar 09 2020 14:36:11 GMT+1100 (Ostaustralische Sommerzeit)
+
     # Extract the languages given in the json
-    df11["language_list"] = df11["spoken_languages"].apply(lambda col_val: extract_field_from_json(col_val, "name"))
+    #df11["language_list"] = df11["spoken_languages"].apply(lambda col_val: extract_field_from_json(col_val, "name"))
     # Method: choose first
-    df11["language_selected"] = df11["language_list"].apply(lambda col_list: col_list[0])
+    #df11["language_selected"] = df11["language_list"].apply(lambda col_list: col_list[0])
 
     # Group by language for color map
-    groups = df11[["language_selected", "vote_average", "success_impact"]].groupby("language_selected").median()
+    groups = df11[["original_language", "vote_average", "success_impact"]].groupby("original_language").median()
     # Manual Color Map
-    color_map = ["#000000", "#ff0000", "#ff8000", "#ffff00", "#80ff00", "#00ff00", "#00ff80", "#00ffff", "#0080ff", "#0000ff", "#7f00ff", "#ff00ff", "#ff007f", "#808080", "#ff6666", "#ffb266", "#ffff66", "#b2ff66", "#66ff66", "#66ffb2", "#66ffff", "#66b2ff", "#6666ff", "#b266ff", "#ff66ff", "#ff66d2", "#c0c0c0", "#ffcccc", "#ffffcc", "#ccffcc", "#ccffff", "#ccccff", "#ffccff"]
+    color_map = [ "#ff0000", "#ff8000", "#ffff00", "#80ff00", "#00ff00", "#00ff80", "#00ffff", "#0080ff", "#0000ff", "#7f00ff", "#ff00ff", "#ff007f", "#808080", "#ff6666", "#ffb266", "#ffff66", "#b2ff66", "#66ff66", "#66ffb2", "#66ffff", "#66b2ff", "#6666ff", "#b266ff", "#ff66ff", "#ff66d2", "#c0c0c0", "#ffcccc", "#ffffcc", "#ccffcc", "#ccffff", "#ccccff", "#ffccff"]
     # Map language to an index of the color map
     language_to_color_map = {}
     map_counter = 0
@@ -460,13 +467,13 @@ def question_13(df10):
     plt.clf()
     plt.figure(figsize=(20, 25))
     # https://matplotlib.org/3.1.0/tutorials/text/text_props.html#text-with-non-latin-glyphs
-    # plt.rcParams['font.sans-serif'] = ['Source Han Sans TW', 'sans-serif']
+    # plt.rcParams['font.family'] = 'Open Sans'
 
     # https://matplotlib.org/3.1.1/gallery/lines_bars_and_markers/scatter_with_legend.html
     fig, ax = plt.subplots()
     for index, row in df11.iterrows():
         x, y, = row["vote_average"], row["success_impact"]
-        label, color = row["language_selected"], color_map[language_to_color_map[row["language_selected"]]]
+        label, color = row["original_language"], color_map[language_to_color_map[row["original_language"]]]
 
         ax.scatter(x, y, c=color, s=4.0, label=label, edgecolors='face')
 
@@ -497,7 +504,7 @@ def question_13(df10):
     # https://stackoverflow.com/questions/10101700/moving-matplotlib-legend-outside-of-the-axis-makes-it-cutoff-by-the-figure-box
     fig.subplots_adjust(bottom=0.5)
 
-    #plt.show()
+    # plt.show()
 
     plt.savefig("{}-Q13.png".format(studentid))
 
