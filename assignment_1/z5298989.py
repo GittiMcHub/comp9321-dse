@@ -375,7 +375,7 @@ def question_11(df10):
     # https://matplotlib.org/3.1.1/api/_as_gen/matplotlib.pyplot.pie.html
     # https://pyformat.info/
     plt.pie(genre_dict.values(), labels=genre_dict.keys(), autopct='%1.1f%%', pctdistance=1.2, labeldistance=1.3)
-    #plt.show()
+    # plt.show()
 
     plt.savefig("{}-Q11.png".format(studentid))
 
@@ -410,7 +410,6 @@ def question_12(df10):
     for country in sorted(country_dict.keys()):
         sorted_values.append(country_dict[country])
 
-
     # https://matplotlib.org/3.1.1/api/_as_gen/matplotlib.pyplot.bar.html
     plt.clf()
     plt.figure(figsize=(15, 10))
@@ -418,7 +417,7 @@ def question_12(df10):
     plt.bar(sorted(country_dict.keys()), sorted_values)
     # https://stackoverflow.com/questions/10101700/moving-matplotlib-legend-outside-of-the-axis-makes-it-cutoff-by-the-figure-box
     plt.subplots_adjust(bottom=0.2)
-    #plt.show()
+    # plt.show()
     plt.savefig("{}-Q12.png".format(studentid))
 
 
@@ -477,7 +476,7 @@ def question_13(df10):
     plt.ylabel("success_impact")
 
     # Now "English" is listed many times, we have to reduce the handles to show distinct values
-    # Thre must be a proper way but I couldn't find it...
+    # There must be a proper way but I couldn't find it...
     handles, labels = ax.get_legend_handles_labels()
     indices = []
     new_labels = []
