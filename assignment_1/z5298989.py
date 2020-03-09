@@ -451,7 +451,7 @@ def question_13(df10):
     # Group by language for color map
     groups = df11[["original_language", "vote_average", "success_impact"]].groupby("original_language").median()
     # Manual Color Map
-    color_map = [ "#ff0000", "#ff8000", "#ffff00", "#80ff00", "#00ff00", "#00ff80", "#00ffff", "#0080ff", "#0000ff", "#7f00ff", "#ff00ff", "#ff007f", "#808080", "#ff6666", "#ffb266", "#ffff66", "#b2ff66", "#66ff66", "#66ffb2", "#66ffff", "#66b2ff", "#6666ff", "#b266ff", "#ff66ff", "#ff66d2", "#c0c0c0", "#ffcccc", "#ffffcc", "#ccffcc", "#ccffff", "#ccccff", "#ffccff"]
+    color_map = ["#000000", "#1f77b4", "#d61515", "#1ba11b", "#ff7f0e", "#8a53bd", "#bcbd22", "#17becf", "#7f7f7f", "#aec7e8", "#ff9896", "#98df8a", "#ffbb78", "#dbdb8d", "#ff00ff"]
     # Map language to an index of the color map
     language_to_color_map = {}
     map_counter = 0
