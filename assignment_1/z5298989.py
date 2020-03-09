@@ -15,6 +15,16 @@ def success_impact_function(row):
     return (row.revenue - row.budget) / row.budget
 
 
+def extract_genres_from_json(json_str: str):
+    json_str = json_str.replace("'", "\"")
+    json_array = json.loads(json_str)
+    genre_list = []
+
+    for genre in json_array:
+        genre_list.append(genre["name"])
+    return genre_list
+
+
 def cast_characters_json_to_sorted_csv(json_str: str):
     # Convert to real json:  'character' => "character"
     json_str = json_str.replace("'", "\"")
@@ -344,6 +354,27 @@ def question_11(df10):
     #################################################
     # Your code goes here ...
     #################################################
+    # Plot a pie chart, showing the distribution of genres in the dataset (e.g., Family, Drama).
+    # Show the percentage of each genre in the pie chart.
+    df11 = df10
+    df11["genre_list"] = df11["genres"].apply(extract_genres_from_json)
+
+    # print(df11["genre_list"].head())
+    genre_dict = {}
+
+    for index, row in df11.iterrows():
+        for genre in row["genre_list"]:
+            if genre in genre_dict:
+                old_val = genre_dict[genre]
+                old_val = old_val + 1
+                genre_dict.update({genre: old_val})
+            else:
+                genre_dict.update({genre: 1})
+
+    # TODO nice to have: sorted
+
+    plt.pie(genre_dict.values(), labels=genre_dict.keys(), autopct='%1.1f%%', pctdistance=1.2, labeldistance=1.3)
+    #plt.show()
 
     plt.savefig("{}-Q11.png".format(studentid))
 
@@ -387,6 +418,6 @@ if __name__ == "__main__":
     df8 = question_8(df7)
     movies = question_9(df8)
     df10 = question_10(df8)
-    # question_11(df10)
+    question_11(df10)
     # question_12(df10)
     # question_13(df10)
