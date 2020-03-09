@@ -504,9 +504,7 @@ def question_13(df10):
 
 
 if __name__ == "__main__":
-    # TODO Restore
     df1 = question_1("movies.csv", "credits.csv")
-    #df1 = question_1("mov1.csv", "cred1.csv")
     df2 = question_2(df1)
     df3 = question_3(df2)
     df4 = question_4(df3)
