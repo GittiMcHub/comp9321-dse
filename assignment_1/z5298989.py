@@ -416,6 +416,8 @@ def question_12(df10):
     plt.figure(figsize=(15, 10))
     plt.xticks(rotation=90)
     plt.bar(sorted(country_dict.keys()), sorted_values)
+    # https://stackoverflow.com/questions/10101700/moving-matplotlib-legend-outside-of-the-axis-makes-it-cutoff-by-the-figure-box
+    plt.subplots_adjust(bottom=0.2)
     #plt.show()
     plt.savefig("{}-Q12.png".format(studentid))
 
@@ -441,7 +443,7 @@ def question_13(df10):
     df11["language_selected"] = df11["language_list"].apply(lambda col_list: col_list[0])
 
     # Group by language for color map
-    groups = df11[["language_selected", "popularity", "success_impact"]].groupby("language_selected").median()
+    groups = df11[["language_selected", "vote_average", "success_impact"]].groupby("language_selected").median()
     # Manual Color Map
     color_map = ["#000000", "#ff0000", "#ff8000", "#ffff00", "#80ff00", "#00ff00", "#00ff80", "#00ffff", "#0080ff", "#0000ff", "#7f00ff", "#ff00ff", "#ff007f", "#808080", "#ff6666", "#ffb266", "#ffff66", "#b2ff66", "#66ff66", "#66ffb2", "#66ffff", "#66b2ff", "#6666ff", "#b266ff", "#ff66ff", "#ff66d2", "#c0c0c0", "#ffcccc", "#ffffcc", "#ccffcc", "#ccffff", "#ccccff", "#ffccff"]
     # Map language to an index of the color map
@@ -464,10 +466,15 @@ def question_13(df10):
     # https://matplotlib.org/3.1.1/gallery/lines_bars_and_markers/scatter_with_legend.html
     fig, ax = plt.subplots()
     for index, row in df11.iterrows():
-        x, y, = row["success_impact"], row["popularity"],
+        x, y, = row["vote_average"], row["success_impact"]
         label, color = row["language_selected"], color_map[language_to_color_map[row["language_selected"]]]
 
         ax.scatter(x, y, c=color, s=4.0, label=label, edgecolors='face')
+
+    # Set Labels
+    plt.title("vote_average vs. success_impact")
+    plt.xlabel("vote_average")
+    plt.ylabel("success_impact")
 
     # Now "English" is listed many times, we have to reduce the handles to show distinct values
     # Thre must be a proper way but I couldn't find it...
@@ -484,14 +491,14 @@ def question_13(df10):
         new_handles.append(handles[idx])
 
     # https://matplotlib.org/tutorials/intermediate/legend_guide.html
-    ax.legend(new_handles, new_labels, bbox_to_anchor=(0, -1.1, 1, 1), loc='upper center',
+    ax.legend(new_handles, new_labels, bbox_to_anchor=(0, -1.2, 1, 1), loc='upper center',
            ncol=4, mode="expand", frameon=True)
 
     ax.grid(True)
+    # https://stackoverflow.com/questions/10101700/moving-matplotlib-legend-outside-of-the-axis-makes-it-cutoff-by-the-figure-box
+    fig.subplots_adjust(bottom=0.5)
 
-    fig.subplots_adjust(bottom=0.2)
-
-    plt.show()
+    #plt.show()
 
     plt.savefig("{}-Q13.png".format(studentid))
 
