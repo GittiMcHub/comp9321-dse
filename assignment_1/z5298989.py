@@ -15,14 +15,14 @@ def success_impact_function(row):
     return (row.revenue - row.budget) / row.budget
 
 
-def extract_genres_from_json(json_str: str):
+def extract_field_from_json(json_str: str, field: str):
     json_str = json_str.replace("'", "\"")
     json_array = json.loads(json_str)
-    genre_list = []
+    generic_list = []
 
-    for genre in json_array:
-        genre_list.append(genre["name"])
-    return genre_list
+    for key in json_array:
+        generic_list.append(key[field])
+    return generic_list
 
 
 def cast_characters_json_to_sorted_csv(json_str: str):
@@ -357,7 +357,7 @@ def question_11(df10):
     # Plot a pie chart, showing the distribution of genres in the dataset (e.g., Family, Drama).
     # Show the percentage of each genre in the pie chart.
     df11 = df10
-    df11["genre_list"] = df11["genres"].apply(extract_genres_from_json)
+    df11["genre_list"] = df11["genres"].apply(lambda col_val: extract_field_from_json(col_val, "name"))
 
     # print(df11["genre_list"].head())
     genre_dict = {}
@@ -372,7 +372,8 @@ def question_11(df10):
                 genre_dict.update({genre: 1})
 
     # TODO nice to have: sorted
-
+    # https://matplotlib.org/3.1.1/api/_as_gen/matplotlib.pyplot.pie.html
+    # https://pyformat.info/
     plt.pie(genre_dict.values(), labels=genre_dict.keys(), autopct='%1.1f%%', pctdistance=1.2, labeldistance=1.3)
     #plt.show()
 
@@ -388,7 +389,34 @@ def question_12(df10):
     #################################################
     # Your code goes here ...
     #################################################
+    # Plot a bar chart of the countries in which movies have been produced.
+    # For each county you need to show the count of movies.
+    # Countries should be alphabetically sorted according to their names.
+    df11 = df10
+    df11["country_list"] = df11["production_countries"].apply(lambda col_val: extract_field_from_json(col_val, "name"))
 
+    country_dict = {}
+
+    for index, row in df11.iterrows():
+        for genre in row["country_list"]:
+            if genre in country_dict:
+                old_val = country_dict[genre]
+                old_val = old_val + 1
+                country_dict.update({genre: old_val})
+            else:
+                country_dict.update({genre: 1})
+
+    sorted_values = []
+    for country in sorted(country_dict.keys()):
+        sorted_values.append(country_dict[country])
+
+
+    # https://matplotlib.org/3.1.1/api/_as_gen/matplotlib.pyplot.bar.html
+    plt.clf()
+    plt.figure(figsize=(15, 10))
+    plt.xticks(rotation=90)
+    plt.bar(sorted(country_dict.keys()), sorted_values)
+    #plt.show()
     plt.savefig("{}-Q12.png".format(studentid))
 
 
@@ -419,5 +447,5 @@ if __name__ == "__main__":
     movies = question_9(df8)
     df10 = question_10(df8)
     question_11(df10)
-    # question_12(df10)
+    question_12(df10)
     # question_13(df10)
