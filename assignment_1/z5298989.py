@@ -31,6 +31,10 @@ def cast_characters_json_to_sorted_csv(json_str: str):
     return ", ".join(sorted(char_list))
 
 
+def characters_string_to_char_count(row: str):
+    return len(list(set(row.split(","))))
+
+
 def log(question, output_df, other):
     print("--------------- {}----------------".format(question))
     if other is not None:
@@ -294,6 +298,14 @@ def question_9(df8):
     #################################################
     # Your code goes here ...
     #################################################
+    # Return a list, containing the names of the top 10 movies according to the number of movie characters
+    # (Harry Potter! is one character! do not count the letters in the title of movies!).
+    # The first element in the list should be the movie with the most number of characters.
+
+    df8["char_count"] = df8["cast"].apply(characters_string_to_char_count)
+    top10df = df8.nlargest(10, "char_count", keep='first')
+    # print(top10df.head(n=15))
+    movies = top10df["title"].tolist()
 
     log("QUESTION 9", output_df=None, other=movies)
     return movies
@@ -365,7 +377,7 @@ if __name__ == "__main__":
     df6 = question_6(df5)
     df7 = question_7(df6)
     df8 = question_8(df7)
-    # movies = question_9(df8)
+    movies = question_9(df8)
     # df10 = question_10(df8)
     # question_11(df10)
     # question_12(df10)
