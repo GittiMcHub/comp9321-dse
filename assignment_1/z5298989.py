@@ -322,6 +322,14 @@ def question_10(df8):
     #################################################
     # Your code goes here ...
     #################################################
+    # Sort the dataframe by the release date
+    # (the most recently released movie should be first row in the dataframe)
+
+    # print(df8["release_date"].dtype)
+
+    df10 = df8
+    df10["release_date"] = pd.to_datetime(df10["release_date"])
+    df10 = df10.sort_values("release_date", axis=0, ascending=False)
 
     log("QUESTION 10", output_df=df10, other=df10["release_date"].head(5).to_string().replace("\n", " "))
     return df10
@@ -378,7 +386,7 @@ if __name__ == "__main__":
     df7 = question_7(df6)
     df8 = question_8(df7)
     movies = question_9(df8)
-    # df10 = question_10(df8)
+    df10 = question_10(df8)
     # question_11(df10)
     # question_12(df10)
     # question_13(df10)
