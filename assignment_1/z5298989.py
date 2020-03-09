@@ -439,7 +439,8 @@ def question_13(df10):
     # - (0.5 Marks) Add a legend showing the name of languages and their associated colors.
     df11 = df10
 
-    # Switching to original_language to avoid font display issues
+    # Switching
+    # to original_language to avoid font display issues
     # Allowed from Mohammadali Yaghoubzadehfard
     # Mon Mar 09 2020 14:36:11 GMT+1100 (Ostaustralische Sommerzeit)
 
