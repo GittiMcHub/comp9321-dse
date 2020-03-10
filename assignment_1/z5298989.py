@@ -371,12 +371,22 @@ def question_11(df10):
             else:
                 genre_dict.update({genre: 1})
 
+    # Combine Others
+    graphdf = pd.DataFrame(genre_dict.items(), columns=["genre", "value"])  # Create DF
+    othersdf = graphdf.nsmallest(4, ["value"])  # Get the 4 smalles
+    graphdf = graphdf[~graphdf.isin(othersdf)].dropna(how="all") # Remove the 4 smallest from DF
+    # Concat DF with a new one for "Others"
+    graphdf = pd.concat([graphdf, pd.DataFrame({"Others (4)": othersdf["value"].sum()}.items(), columns=["genre", "value"])], axis=0)
+    graphdf = graphdf.sort_values("value", axis=0, ascending=False)
+    graphdf = graphdf.reset_index()
+    graphdf = graphdf.astype({'value': 'int16'})
+    # print(graphdf.head(20))
     # Reduce overlapping
-    plt.rcParams.update({'font.size': 6})
+    plt.rcParams.update({'font.size': 8})
 
     # https://matplotlib.org/3.1.1/api/_as_gen/matplotlib.pyplot.pie.html
     # https://pyformat.info/
-    plt.pie(genre_dict.values(), labels=genre_dict.keys(), autopct='%1.1f%%', pctdistance=1.2, labeldistance=1.3)
+    plt.pie(graphdf["value"], labels=graphdf["genre"], autopct='%1.1f%%', pctdistance=1.1, labeldistance=1.2)
     # plt.show()
 
     plt.savefig("{}-Q11.png".format(studentid))
