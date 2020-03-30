@@ -1,3 +1,11 @@
+=== TERMS OF USE ===
+This API uses an external API of The World Bank Group.
+The usage of this software, especially the import of indicators via
+the HTTP POST endpoint "/collections?indicator_id={example.indicator}"
+underlies the Terms and conditions of the The World Bank Group:
+https://www.worldbank.org/en/about/legal/terms-and-conditions
+===
+
 MIT License
 
 Copyright (c) 2018 GittiMcHub

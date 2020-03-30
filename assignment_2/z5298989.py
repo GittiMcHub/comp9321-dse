@@ -13,7 +13,8 @@ api = Api(app=app,
           description="Data service that allows a client to read and store some publicly available economic indicator data for countries around the world, and allow the consumers to access the data through a REST API. ",
           contact="d.tobaben@student.unsw.edu.au",
           license="MIT License",
-          license_url="")
+          license_url="https://raw.githubusercontent.com/GittiMcHub/comp9321-dse/master/assignment_2/LICENSE | https://www.worldbank.org/en/about/legal/terms-and-conditions",
+          default_mediatype="application/json")
 
 
 api_base_url = "http://api.worldbank.org/v2"
