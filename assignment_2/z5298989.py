@@ -84,6 +84,27 @@ class DBService:
                 where id = ?''', (id,))
             return result.fetchone()
 
+    # {+id,-creation_time,-indicator}
+    def get_collections_with_order(self, order_text: str):
+        print("get_collections_with_order: " + order_text)
+        order_text = order_text.replace("{", "").replace("}", "")
+        order_values = order_text.split(",")
+        order_sql = " "
+        for value in order_values:
+            print("Value: " + value.strip())
+            if value.startswith(" "):
+                order_sql = order_sql + " " + value.strip() + " ASC"
+            if value.strip().startswith("-"):
+                order_sql = order_sql + " " + value.replace("-", "").strip() + " DESC"
+            order_sql = order_sql + ","
+        order_sql = order_sql[:-1]
+        with self.engine.connect() as connection:
+            result = connection.execute('''
+                select id, creation_time, indicator_id 
+                from collections
+                order by {}'''.format(order_sql))
+            return result.fetchall()
+
 
 class DataTransUtils:
     @staticmethod
@@ -146,7 +167,35 @@ class Collections(Resource):
     @api.doc(description="Receive a list of available collections with option to sort the results")
     @api.param("order_by", description="Orders the result. Syntax e.g: {+id,-creation_time}", type='string')
     def get(self):
-        return {"test": "test"}
+        order_by: str = request.args.get("order_by")
+        order_by_flag = False
+        if order_by is not None and order_by != "":
+            # if not order_by.startswith("{") or not order_by.endswith("}"):
+            #    api.abort(400, "order_by must be in curly brackets")
+            if len(order_by.split(",")) > 3:
+                api.abort(400, "order_by expects only a maximum of 3 attributes")
+            order_list = order_by.replace("{", "").replace("}", "").split(",")
+            for value in order_list:
+                if not (value.startswith(" ") or value.startswith("-")):
+                    api.abort(400, "order_by value {} must have a prefix + or -".format(value))
+                if value.replace("+", "").replace("-", "").strip() not in ["id", "indicator_id", "creation_time"]:
+                    api.abort(400, "order_by can't handle value:{} (only: id,creation_time,indicator_id)".format(value))
+            order_by_flag = True
+
+        db: DBService = DBService.get_instance()
+
+        result = db.get_collections_with_order(request.args.get("order_by")) if order_by_flag else db.get_collections_with_order(" id")
+        output = []
+        for row in result:
+            output.append(
+                {
+                    "uri": "/collections/" + str(row["id"]),
+                    "id": row["id"],
+                    "creation_time": str(row["creation_time"]),
+                    "indicator_id": str(row["indicator_id"])
+                })
+        return output
+
 
     @api.response(201, "Created")
     @api.doc(description="Import an Indicator and store it as collection")
