@@ -11,7 +11,9 @@ api = Api(app=app,
           version="1.0",
           title="z5298989 - World Bank Economic Indicators ",
           description="Data service that allows a client to read and store some publicly available economic indicator data for countries around the world, and allow the consumers to access the data through a REST API. ",
-          contact="d.tobaben@student.unsw.edu.au")
+          contact="d.tobaben@student.unsw.edu.au",
+          license="MIT License",
+          license_url="")
 
 
 api_base_url = "http://api.worldbank.org/v2"
