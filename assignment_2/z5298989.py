@@ -7,7 +7,12 @@ import pandas as pd
 import sqlite3
 
 app = Flask(__name__)
-api = Api(app)
+api = Api(app=app,
+          version="1.0",
+          title="z5298989 - World Bank Economic Indicators ",
+          description="Data service that allows a client to read and store some publicly available economic indicator data for countries around the world, and allow the consumers to access the data through a REST API. ",
+          contact="d.tobaben@student.unsw.edu.au")
+
 
 api_base_url = "http://api.worldbank.org/v2"
 database_name = "z5298989.db"
@@ -83,6 +88,17 @@ class DBService:
                 from collections 
                 where id = ?''', (id,))
             return result.fetchone()
+
+    def collection_data_exists(self, id):
+        if self.engine.has_table("collection_" + str(id)):
+            return True
+        return False
+
+    def get_collection_data_df(self, id):
+        with self.engine.connect() as connection:
+            df = pd.read_sql_table(con=connection,
+                                   table_name="collection_" + str(id))
+            return df
 
     # {+id,-creation_time,-indicator}
     def get_collections_with_order(self, order_text: str):
@@ -196,7 +212,6 @@ class Collections(Resource):
                 })
         return output
 
-
     @api.response(201, "Created")
     @api.doc(description="Import an Indicator and store it as collection")
     @api.param("indicator_id", description="Indicator to import", type='string')
@@ -233,6 +248,34 @@ class Collections(Resource):
 
 @api.route('/collections/<int:id>')
 class Collections(Resource):
+
+    @api.response(200, "Ok")
+    @api.doc(description="This operation retrieves a collection by its ID . The response of this operation will show the imported content from world bank API for all 6 years.")
+    def get(self, id):
+        db: DBService = DBService.get_instance()
+
+        if not db.collection_data_exists(id):
+            api.abort(404, "Collection with id {} not found.".format(id))
+
+        # TODO: Handle not Found
+        result_md = db.get_collection_by_id(id)
+        result_df = db.get_collection_data_df(id)
+
+        indicator = result_df["indicator_id"].max()
+        indicator_value = result_df["indicator_value"].max()
+
+        result_df = result_df.rename(columns={"country_value": "country"})
+        result_df = result_df.filter(["country", "date", "value"])
+        print(result_df.head())
+        entries = json.loads(result_df.to_json(orient='records'))
+
+        return {
+            "id": id,
+            "indicator": indicator,
+            "indicator_value": indicator_value,
+            "creation_time": result_md["creation_time"],
+            "entries": entries
+        }
 
     @api.response(200, "Ok")
     @api.doc(description="Delete an imported collection")
