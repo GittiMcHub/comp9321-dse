@@ -1,4 +1,5 @@
 import json
+import re
 from urllib.request import urlopen
 from sqlalchemy import create_engine
 from flask import Flask, request
@@ -10,12 +11,14 @@ app = Flask(__name__)
 api = Api(app=app,
           version="1.0",
           title="z5298989 - World Bank Economic Indicators ",
-          description="Data service that allows a client to read and store some publicly available economic indicator data for countries around the world, and allow the consumers to access the data through a REST API. ",
+          description="Data service that allows a client to read and store some publicly available economic"
+                      " indicator data for countries around the world, and allow the consumers to access "
+                      "the data through a REST API. ",
           contact="d.tobaben@student.unsw.edu.au",
-          license="MIT License",
-          license_url="https://raw.githubusercontent.com/GittiMcHub/comp9321-dse/master/assignment_2/LICENSE | https://www.worldbank.org/en/about/legal/terms-and-conditions",
+          license="MIT License & Terms of Use",
+          license_url="https://github.com/GittiMcHub/comp9321-dse/blob/master/assignment_2/LICENSE",
+          default="Collections",
           default_mediatype="application/json")
-
 
 api_base_url = "http://api.worldbank.org/v2"
 database_name = "z5298989.db"
@@ -158,8 +161,9 @@ class APIService:
 
         print(query_url)
 
-        #json_url = urlopen(query_url)
+        # json_url = urlopen(query_url)
         # TODO: durch echten request ersetzten
+        # TODO: paging beruecksichtigen
         json_url = urlopen("file:///home/dome/workspace/comp9321-dse/assignment_2/NY.GDP.MKTP.CD.json")
         result = json.loads(json_url.read())
         self.latest_metadata = result.pop(0)
@@ -168,7 +172,8 @@ class APIService:
 
     @staticmethod
     def date_range(query, date_start, date_end):
-        return query + ("" if query[-1] == "?" else "&") + "date=" + str(date_start) + (":" + str(date_end) if date_end > 0 else "")
+        return query + ("" if query[-1] == "?" else "&") + "date=" + str(date_start) + (
+            ":" + str(date_end) if date_end > 0 else "")
 
     @staticmethod
     def json(query):
@@ -182,42 +187,15 @@ class APIService:
 @api.route('/collections')
 class Collections(Resource):
 
-    @api.response(200, "OK")
-    @api.doc(description="Receive a list of available collections with option to sort the results")
-    @api.param("order_by", description="Orders the result. Syntax e.g: {+id,-creation_time}", type='string')
-    def get(self):
-        order_by: str = request.args.get("order_by")
-        order_by_flag = False
-        if order_by is not None and order_by != "":
-            # if not order_by.startswith("{") or not order_by.endswith("}"):
-            #    api.abort(400, "order_by must be in curly brackets")
-            if len(order_by.split(",")) > 3:
-                api.abort(400, "order_by expects only a maximum of 3 attributes")
-            order_list = order_by.replace("{", "").replace("}", "").split(",")
-            for value in order_list:
-                if not (value.startswith(" ") or value.startswith("-")):
-                    api.abort(400, "order_by value {} must have a prefix + or -".format(value))
-                if value.replace("+", "").replace("-", "").strip() not in ["id", "indicator_id", "creation_time"]:
-                    api.abort(400, "order_by can't handle value:{} (only: id,creation_time,indicator_id)".format(value))
-            order_by_flag = True
-
-        db: DBService = DBService.get_instance()
-
-        result = db.get_collections_with_order(request.args.get("order_by")) if order_by_flag else db.get_collections_with_order(" id")
-        output = []
-        for row in result:
-            output.append(
-                {
-                    "uri": "/collections/" + str(row["id"]),
-                    "id": row["id"],
-                    "creation_time": str(row["creation_time"]),
-                    "indicator_id": str(row["indicator_id"])
-                })
-        return output
-
+    # Question-1: Import a collection from the data service
     @api.response(201, "Created")
-    @api.doc(description="Import an Indicator and store it as collection")
-    @api.param("indicator_id", description="Indicator to import", type='string')
+    @api.doc(description="This operation can be considered as an on-demand 'import' operation. The service will"
+                         " download the JSON data for all countries respective to the year 2012 to 2017 and"
+                         " identified by the indicator id given by the user and process the content into an"
+                         " internal data format and store it in the database")
+    @api.param("indicator_id", description="An Indicator to import. Must be from"
+                                           " http://api.worldbank.org/v2/indicators "
+                             , type='string')
     def post(self):
         # TODO: check if inidcator is an existing one (http://api.worldbank.org/v2/indicator/{indicator_id})
         indicator_id = request.args.get("indicator_id")
@@ -242,25 +220,60 @@ class Collections(Resource):
 
         print(result)
         return {
-                "uri": "/collections/" + str(result["id"]),
-                "id": result["id"],
-                "creation_time": str(result["creation_time"]),
-                "indicator_id": str(result["indicator_id"])
-                }
+            "uri": "/collections/" + str(result["id"]),
+            "id": result["id"],
+            "creation_time": str(result["creation_time"]),
+            "indicator_id": str(result["indicator_id"])
+        }
+
+    @api.response(200, "OK")
+    @api.doc(description="Receive a list of available collections with option to sort the results")
+    @api.param("order_by", description="Orders the result. Syntax e.g: {+id,-creation_time}", type='string')
+    def get(self):
+        order_by: str = request.args.get("order_by")
+        order_by_flag = False
+        if order_by is not None and order_by != "":
+            # if not order_by.startswith("{") or not order_by.endswith("}"):
+            #    api.abort(400, "order_by must be in curly brackets")
+            if len(order_by.split(",")) > 3:
+                api.abort(400, "order_by expects only a maximum of 3 attributes")
+            order_list = order_by.replace("{", "").replace("}", "").split(",")
+            for value in order_list:
+                if not (value.startswith(" ") or value.startswith("-")):
+                    api.abort(400, "order_by value {} must have a prefix + or -".format(value))
+                if value.replace("+", "").replace("-", "").strip() not in ["id", "indicator_id", "creation_time"]:
+                    api.abort(400, "order_by can't handle value:{} (only: id,creation_time,indicator_id)".format(value))
+            order_by_flag = True
+
+        db: DBService = DBService.get_instance()
+
+        result = db.get_collections_with_order(
+            request.args.get("order_by")) if order_by_flag else db.get_collections_with_order(" id")
+        output = []
+        for row in result:
+            output.append(
+                {
+                    "uri": "/collections/" + str(row["id"]),
+                    "id": row["id"],
+                    "creation_time": str(row["creation_time"]),
+                    "indicator_id": str(row["indicator_id"])
+                })
+        return output
 
 
 @api.route('/collections/<int:id>')
-class Collections(Resource):
+class CollectionsByID(Resource):
 
     @api.response(200, "Ok")
-    @api.doc(description="This operation retrieves a collection by its ID . The response of this operation will show the imported content from world bank API for all 6 years.")
+    @api.doc(description="This operation retrieves a collection by its ID . "
+                         "The response of this operation will show the imported "
+                         "content from world bank API for all 6 years.")
     def get(self, id):
         db: DBService = DBService.get_instance()
 
         if not db.collection_data_exists(id):
             api.abort(404, "Collection with id {} not found.".format(id))
 
-        # TODO: Handle not Found
         result_md = db.get_collection_by_id(id)
         result_df = db.get_collection_data_df(id)
 
@@ -281,7 +294,7 @@ class Collections(Resource):
         }
 
     @api.response(200, "Ok")
-    @api.doc(description="Delete an imported collection")
+    @api.doc(description="This operation deletes an existing collection from the database")
     def delete(self, id):
         db: DBService = DBService.get_instance()
         result = db.get_collection_by_id(id)
@@ -290,23 +303,109 @@ class Collections(Resource):
 
         db.delete_collection_by_id(id)
         return {
-                "message": "The collection {} was removed from the database!".format(id),
-                "id": id
-                }
+            "message": "The collection {} was removed from the database!".format(id),
+            "id": id
+        }
+
+
+@api.route('/collections/<int:id>/<int:year>')
+class CollectionsByIDAndYear(Resource):
+
+    @api.response(200, "Ok")
+    @api.doc(description=" Retrieve economic indicator value for given year with optional Top/Bottom query")
+    @api.param("query",
+               description="+N (or simply N) : Returns top N countries sorted by indicator value (highest first) "
+                           "-N : Returns bottom N countries sorted by indicator value "
+                           " where N can be an integer value between 1 and 100",
+                type='string')
+    def get(self, id, year):
+        query: str = request.args.get("query")
+        pattern = re.compile("^[+-]{0,1}\d{1,3}$")
+        query_flag = False
+        query_number = 0
+        bottom_flag = False
+        if query is not None and query != "":
+            if not pattern.match(query.strip()):
+                api.abort(400, "Parameter invalid: {} - Syntax: +N, N or -N, with N between 1 and 100".format(query))
+            bottom_flag = True if "-" in query else False
+            query_number = int(query.strip().replace("+", "").replace("-", ""))
+            if query_number <= 0 or query_number > 100:
+                api.abort(400, "Query parameter invalid: {} - must be between 1 and 100".format(query))
+            query_flag = True
+
+        db: DBService = DBService.get_instance()
+
+        if not db.collection_data_exists(id):
+            api.abort(404, "Collection with id {} not found.".format(id))
+
+        result_df = db.get_collection_data_df(id)
+
+        indicator = result_df["indicator_id"].max()
+        indicator_value = result_df["indicator_value"].max()
+
+        result_df = result_df.rename(columns={"country_value": "country"})
+        result_df = result_df[result_df["date"] == str(year)]
+        result_df = result_df.filter(["country", "value"])
+
+        entries = []
+        if query_flag:
+            entries = json.loads(result_df.sort_values("value", ascending=bottom_flag).head(query_number).to_json(orient='records'))
+        else:
+            entries = json.loads(result_df.to_json(orient='records'))
+
+        return {
+            "indicator": indicator,
+            "indicator_value": indicator_value,
+            "entries": entries
+        }
+
+
+@api.route('/collections/<int:id>/<int:year>/<string:country>')
+class CollectionsByIDAndYearAndCountry(Resource):
+
+    @api.response(200, "Ok")
+    @api.doc(description=" Retrieve economic indicator value for given country and a year.")
+    def get(self, id, year, country):
+        db: DBService = DBService.get_instance()
+
+        if not db.collection_data_exists(id):
+            api.abort(404, "Collection with id {} not found.".format(id))
+
+        result_df = db.get_collection_data_df(id)
+        result_df = result_df.rename(columns={
+            "country_value": "country",
+            "indicator_id": "indicator",
+            "collections_id": "id",
+            "date": "year"
+        })
+        result_df = result_df.filter(["id", "indicator", "country", "year", "value"])
+        result_df = result_df[result_df["year"] == str(year)]
+        if not result_df["id"].count() >= 1:
+            api.abort(404, "Could not find data for year: {}".format(year))
+
+        result_df = result_df[result_df["country"] == country]
+        if not result_df["id"].count() >= 1:
+            api.abort(404, "Could not find data for country: {}".format(country))
+
+        return {
+            "id": id,
+            "indicator": result_df["indicator"].max(),
+            "country": result_df["country"].max(),
+            "year": year,
+            "value": result_df["value"].max()
+        }
 
 
 if __name__ == '__main__':
     app.run(debug=True)
 
-    #DBService.get_instance().delete_collection_by_id(1)
-
+    # DBService.get_instance().delete_collection_by_id(1)
 
 #    api = APIService()
 #    df = pd.DataFrame(api.get_all_by_indicator_and_date("NY.GDP.MKTP.CD", 2012, 2017))
 #    df = DataTransUtils.flatten_collections_df(df)
 #    id = DBService.get_instance().store_collection("NY.GDP.MKTP.CD", 2012, 2017, df)
 
-    # print(df.head())
-    # print(df[df["value"].notna()].count())
-    # print(df[df["value"].isna()].count())
-
+# print(df.head())
+# print(df[df["value"].notna()].count())
+# print(df[df["value"].isna()].count())
