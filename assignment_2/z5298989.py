@@ -8,6 +8,20 @@ from flask import Flask, request, jsonify
 from flask_restplus import Resource, Api, fields
 from sqlalchemy import create_engine
 
+#
+# Author: z5298989
+#
+# Required packages:
+#  pandas~=1.0.3"
+#  Flask~=1.1.1"
+#  flask-restplus~=0.13.0"
+#  SQLAlchemy~=1.3.15"
+#  werkzeug~=0.16.1
+#
+#  !!! MAKE SURE YOU DOWNGRADE werkzeug TO VERSION 0.16.1 AT LAST !!!
+#  GitHub Issue: https://github.com/noirbizarre/flask-restplus/issues/777
+
+
 app = Flask(__name__)
 api = Api(app=app,
           version="1.0",
@@ -508,5 +522,19 @@ def resource_not_found(e):
     return jsonify(error=str(e)), 404
 
 
+@app.errorhandler(400)
+def bad_request(e):
+    return jsonify(error=str(e)), 400
+
+
 if __name__ == '__main__':
+    print("Required packages: "
+          "\n\tpandas~=1.0.3"
+          "\n\tFlask~=1.1.1"
+          "\n\tflask-restplus~=0.13.0"
+          "\n\tSQLAlchemy~=1.3.15"
+          "\n\twerkzeug~=0.16.1 ")
+    print("!!! MAKE SURE YOU DOWNGRADE werkzeug TO VERSION 0.16.1 AT LAST !!!")
+    print("GitHub Issue: https://github.com/noirbizarre/flask-restplus/issues/777")
+
     app.run(debug=True)
