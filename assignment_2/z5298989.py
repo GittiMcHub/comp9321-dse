@@ -2,11 +2,11 @@ import json
 import re
 import time
 from urllib.request import urlopen
-from sqlalchemy import create_engine
-from flask import Flask, request
-from flask_restplus import Resource, Api, fields
+
 import pandas as pd
-import sqlite3
+from flask import Flask, request, jsonify
+from flask_restplus import Resource, Api, fields
+from sqlalchemy import create_engine
 
 app = Flask(__name__)
 api = Api(app=app,
@@ -26,6 +26,7 @@ api = Api(app=app,
           default_mediatype="application/json")
 
 api_base_url = "http://api.worldbank.org/v2"
+api_sleep_seconds = 1   # Sleep to avoid hitting rate limit while iterating pages
 database_name = "z5298989.db"
 query_year_start = 2012
 query_year_end = 2017
@@ -99,7 +100,7 @@ class DBService:
             self.setup_database()
 
     def setup_database(self):
-        print("DB Setup")
+        print("DBService.setup_database")
         with self.engine.begin() as connection:
             connection.execute(''' CREATE TABLE IF NOT EXISTS collections (
                         id INTEGER PRIMARY KEY, 
@@ -123,7 +124,7 @@ class DBService:
         newdf.to_sql('collection_' + str(id), con=self.engine, if_exists='replace')
         # dtype={"indicator": str, "country": str, "countryiso3code": str, "date": int, "unit": str, "obs_status": str,
         # "indicator_id": str, "indicator_value": str, "country_id": str, "country_value": str})
-        print("Stored ID: " + str(id))
+        print("DBService.store_collection: Stored ID " + str(id))
         return id
 
     def delete_collection_by_id(self, collection_id):
@@ -221,23 +222,26 @@ class APIService:
         query_url = self.date_range(query_url, date_start, date_end)
         query_url = self.json(query_url)
 
-        print(query_url)
+        print("APIService.get_all_by_indicator_and_date: query_url=" + query_url)
 
         json_url = urlopen(query_url)
         result = json.loads(json_url.read())
         self.latest_metadata = result.pop(0)
 
-        print("Current Page: " + str(self.latest_metadata["page"]) + " from: " + str(self.latest_metadata["pages"]))
+        print("APIService.get_all_by_indicator_and_date: "
+              "Current Page= " + str(self.latest_metadata["page"]) + " from= " + str(self.latest_metadata["pages"]))
+
         while int(self.latest_metadata["page"]) < int(self.latest_metadata["pages"]):
             next_page_no = int(self.latest_metadata["page"]) + 1
             next_page_url = self.page(query_url, next_page_no)
-            print("next page: " + next_page_url)
+            print("APIService.get_all_by_indicator_and_date: next_page_url=" + next_page_url)
             json_url = urlopen(self.page(query_url, next_page_no))
             temp_result = json.loads(json_url.read())
             self.latest_metadata = temp_result.pop(0)
             temp_result_data = temp_result.pop(0)
             result[0].extend(temp_result_data)
-            time.sleep(1)
+            print("APIService.get_all_by_indicator_and_date: sleep=" + next_page_url)
+            time.sleep(api_sleep_seconds)
 
         return result.pop(0)
 
@@ -287,7 +291,6 @@ class Collections(Resource):
         db: DBService = DBService.get_instance()
 
         result = db.get_collection_by_indicator_id(indicator_id)
-        print(result)
         if result is not None:
             api.abort(409, "Indicator {} already exists in collections".format(indicator_id))
 
@@ -298,7 +301,6 @@ class Collections(Resource):
 
         result = db.get_collection_by_id(id)
 
-        print(result)
         return {
             "uri": "/collections/" + str(result["id"]),
             "id": result["id"],
@@ -389,7 +391,7 @@ class CollectionsByID(Resource):
 
         result_df = result_df.rename(columns={"country_value": "country"})
         result_df = result_df.filter(["country", "date", "value"])
-        print(result_df.head())
+
         entries = json.loads(result_df.to_json(orient='records'))
 
         return {
@@ -501,18 +503,10 @@ class CollectionsByIDAndYear(Resource):
         }
 
 
+@app.errorhandler(404)
+def resource_not_found(e):
+    return jsonify(error=str(e)), 404
+
+
 if __name__ == '__main__':
     app.run(debug=True)
-
-    # print(APIService.indicator_exists("NY.GDP.MKTP.CD"))
-    # print(APIService.indicator_exists("NY.GDP.MKTP.XX"))
-    # DBService.get_instance().delete_collection_by_id(1)
-
-#    api = APIService()
-#    df = pd.DataFrame(api.get_all_by_indicator_and_date("NY.GDP.MKTP.CD", 2012, 2017))
-#    df = DataTransUtils.flatten_collections_df(df)
-#    id = DBService.get_instance().store_collection("NY.GDP.MKTP.CD", 2012, 2017, df)
-
-# print(df.head())
-# print(df[df["value"].notna()].count())
-# print(df[df["value"].isna()].count())
