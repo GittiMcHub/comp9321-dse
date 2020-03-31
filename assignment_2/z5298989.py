@@ -1,5 +1,6 @@
 import json
 import re
+import time
 from urllib.request import urlopen
 from sqlalchemy import create_engine
 from flask import Flask, request
@@ -26,6 +27,8 @@ api = Api(app=app,
 
 api_base_url = "http://api.worldbank.org/v2"
 database_name = "z5298989.db"
+query_year_start = 2012
+query_year_end = 2017
 
 collectionCreatedModel = api.model('CollectionCreatedModel', {
     'uri': fields.Url(description='The URL with which the imported collection can be retrieved'),
@@ -203,6 +206,16 @@ class APIService:
     def __init__(self):
         db = DBService.get_instance()
 
+    @staticmethod
+    def indicator_exists(indicator):
+        url = "http://api.worldbank.org/v2/indicator/{}?format=json".format(indicator)
+        json_url = urlopen(url)
+        result: json = json.loads(json_url.read())
+        md = result.pop(0)
+        if "message" in md:
+            return False
+        return True
+
     def get_all_by_indicator_and_date(self, indicator, date_start, date_end):
         query_url = api_base_url + "/countries/all/indicators/" + indicator + "?per_page=10000"
         query_url = self.date_range(query_url, date_start, date_end)
@@ -211,12 +224,21 @@ class APIService:
         print(query_url)
 
         json_url = urlopen(query_url)
-        # TODO: durch echten request ersetzten
-        # TODO: paging beruecksichtigen
-        # json_url = urlopen("file:///home/dome/workspace/comp9321-dse/assignment_2/NY.GDP.MKTP.CD.json")
         result = json.loads(json_url.read())
         self.latest_metadata = result.pop(0)
-        # return on error (when result.size = 1)
+
+        print("Current Page: " + str(self.latest_metadata["page"]) + " from: " + str(self.latest_metadata["pages"]))
+        while int(self.latest_metadata["page"]) < int(self.latest_metadata["pages"]):
+            next_page_no = int(self.latest_metadata["page"]) + 1
+            next_page_url = self.page(query_url, next_page_no)
+            print("next page: " + next_page_url)
+            json_url = urlopen(self.page(query_url, next_page_no))
+            temp_result = json.loads(json_url.read())
+            self.latest_metadata = temp_result.pop(0)
+            temp_result_data = temp_result.pop(0)
+            result[0].extend(temp_result_data)
+            time.sleep(1)
+
         return result.pop(0)
 
     @staticmethod
@@ -229,8 +251,12 @@ class APIService:
         return query + ("" if query[-1] == "?" else "&") + "format=json"
 
     @staticmethod
-    def page(query, page_size):
+    def per_page(query, page_size):
         return query + ("" if query[-1] == "?" else "&") + "per_page=" + str(page_size)
+
+    @staticmethod
+    def page(query, page):
+        return query + ("" if query[-1] == "?" else "&") + "page=" + str(page)
 
 
 @api.route('/collections')
@@ -251,10 +277,11 @@ class Collections(Resource):
                                            " http://api.worldbank.org/v2/indicators "
                              , type='string')
     def post(self):
-        # TODO: check if inidcator is an existing one (http://api.worldbank.org/v2/indicator/{indicator_id})
         indicator_id = request.args.get("indicator_id")
         if indicator_id is None or indicator_id == "":
             api.abort(400, "Parameter indicator_id is mandatory")
+        if not APIService.indicator_exists(indicator_id):
+            api.abort(404, "Indicator {} does not exist in source API".format(indicator_id))
 
         ext_api: APIService = APIService()
         db: DBService = DBService.get_instance()
@@ -264,11 +291,10 @@ class Collections(Resource):
         if result is not None:
             api.abort(409, "Indicator {} already exists in collections".format(indicator_id))
 
-        # TODO: Fehlermbehandlung mit api.abort(40x, "aabc")
-        df = pd.DataFrame(ext_api.get_all_by_indicator_and_date(indicator_id, 2012, 2017))
+        df = pd.DataFrame(ext_api.get_all_by_indicator_and_date(indicator_id, query_year_start, query_year_end))
         df = DataTransUtils.flatten_collections_df(df)
-        # TODO: deal with years
-        id = db.store_collection(indicator_id, 2012, 2017, df)
+
+        id = db.store_collection(indicator_id, query_year_start, query_year_end, df)
 
         result = db.get_collection_by_id(id)
 
@@ -478,6 +504,8 @@ class CollectionsByIDAndYear(Resource):
 if __name__ == '__main__':
     app.run(debug=True)
 
+    # print(APIService.indicator_exists("NY.GDP.MKTP.CD"))
+    # print(APIService.indicator_exists("NY.GDP.MKTP.XX"))
     # DBService.get_instance().delete_collection_by_id(1)
 
 #    api = APIService()
