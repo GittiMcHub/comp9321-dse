@@ -470,13 +470,13 @@ class CollectionsByIDAndYear(Resource):
     @api.response(400, "order_by invalid - Syntax: +N, N or -N, with N between 1 and 100")
     @api.response(404, "Collection with id {} not found.")
     @api.doc(description=" Retrieve economic indicator value for given year with optional Top/Bottom query")
-    @api.param("query",
+    @api.param("q",
                description="+N (or simply N) : Returns top N countries sorted by indicator value (highest first) "
                            "-N : Returns bottom N countries sorted by indicator value "
                            " where N can be an integer value between 1 and 100",
                 type='string')
     def get(self, id, year):
-        query: str = request.args.get("query")
+        query: str = request.args.get("q")
         pattern = re.compile("^[+-]{0,1}\d{1,3}$")
         query_flag = False
         query_number = 0
