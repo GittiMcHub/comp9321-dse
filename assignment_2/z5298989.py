@@ -3,7 +3,7 @@ import re
 from urllib.request import urlopen
 from sqlalchemy import create_engine
 from flask import Flask, request
-from flask_restplus import Resource, Api
+from flask_restplus import Resource, Api, fields
 import pandas as pd
 import sqlite3
 
@@ -11,9 +11,13 @@ app = Flask(__name__)
 api = Api(app=app,
           version="1.0",
           title="z5298989 - World Bank Economic Indicators ",
-          description="Data service that allows a client to read and store some publicly available economic"
-                      " indicator data for countries around the world, and allow the consumers to access "
-                      "the data through a REST API. ",
+          description="Data service that allows a client to read and store the publicly available economic"
+                      " indicator data for countries around the world, provided by the Worldbank Group."
+                      " The service allows the consumers to access the data through a REST API. "
+                      " The service will download the JSON data for all countries"
+                      " respective to the year 2012 to 2017"
+                      "Usage therefore underlies the Terms and Conditions of the Worldbank Group:"
+                      " https://www.worldbank.org/en/about/legal/terms-and-conditions ",
           contact="d.tobaben@student.unsw.edu.au",
           license="MIT License & Terms of Use",
           license_url="https://github.com/GittiMcHub/comp9321-dse/blob/master/assignment_2/LICENSE",
@@ -22,6 +26,51 @@ api = Api(app=app,
 
 api_base_url = "http://api.worldbank.org/v2"
 database_name = "z5298989.db"
+
+collectionCreatedModel = api.model('CollectionCreatedModel', {
+    'uri': fields.Url(description='The URL with which the imported collection can be retrieved'),
+    'id': fields.Integer(description='A unique integer identifier automatically generated', min=1),
+    'creation_time': fields.DateTime(description='The time the collection stored in the database'),
+    'indicator_id': fields.String(description='The indicator from http://api.worldbank.org/v2/indicators')
+})
+
+collectionWithDataModel = api.model('CollectionWithDataModel', {
+    'id': fields.Integer(description='A unique integer identifier automatically generated ', min=1),
+    'indicator': fields.String(description='The indicator from http://api.worldbank.org/v2/indicators'),
+    'indicator_value': fields.String(description='The indicator name'),
+    'creation_time': fields.DateTime(description='The time the collection stored in the database'),
+    'entries': fields.List(fields.Nested(api.model('CollectionDataEntryModel', {
+        'country': fields.String(description="Country of the data entry"),
+        'date': fields.Integer(description="Year of the data entry", min=2012),
+        'value': fields.Float(description="Value of the data entry"),
+         })))
+})
+
+singleEconomicIndicatorValueModel = api.model('SingleEconomicIndicatorValueModel', {
+   'id': fields.Integer(description='A unique integer identifier automatically generated ', min=1),
+   'indicator': fields.String(description='The indicator from http://api.worldbank.org/v2/indicators'),
+   'country': fields.String(description="Country of the data entry"),
+   'year': fields.Integer(description="Year of the data entry", min=2012),
+   'value': fields.Float(description="Value of the data entry"),
+})
+
+topBottomModel = api.model('TopBottomModel', {
+   'indicator': fields.String(description='The indicator from http://api.worldbank.org/v2/indicators'),
+   'indicator_value': fields.String(description='The indicator name'),
+   'entries': fields.List(fields.Nested(api.model('TopBottomDataEntryModel', {
+        'country': fields.String(description="Country of the data entry"),
+        'value': fields.Float(description="Value of the data entry"),
+         })))
+})
+
+deletionModel = api.model('DeletionModel', {
+    'id': fields.Integer(description='The unique integer of the deleted collection', min=1),
+    'message': fields.String(description='Deletion message'),
+})
+
+errorModel = api.model('ErrorModel', {
+    'message': fields.String(description='Error message'),
+})
 
 
 class DBService:
@@ -161,10 +210,10 @@ class APIService:
 
         print(query_url)
 
-        # json_url = urlopen(query_url)
+        json_url = urlopen(query_url)
         # TODO: durch echten request ersetzten
         # TODO: paging beruecksichtigen
-        json_url = urlopen("file:///home/dome/workspace/comp9321-dse/assignment_2/NY.GDP.MKTP.CD.json")
+        # json_url = urlopen("file:///home/dome/workspace/comp9321-dse/assignment_2/NY.GDP.MKTP.CD.json")
         result = json.loads(json_url.read())
         self.latest_metadata = result.pop(0)
         # return on error (when result.size = 1)
@@ -187,12 +236,17 @@ class APIService:
 @api.route('/collections')
 class Collections(Resource):
 
-    # Question-1: Import a collection from the data service
-    @api.response(201, "Created")
+    # Question - 1: Import a collection from the data service
+    @api.response(201, "Indicator successfully imported", collectionCreatedModel)
+    @api.response(400, "Parameter indicator_id is mandatory", errorModel)
+    @api.response(404, "Indicator does not exist in source API", errorModel)
+    @api.response(409, "Indicator {} already exists in collections", errorModel)
     @api.doc(description="This operation can be considered as an on-demand 'import' operation. The service will"
                          " download the JSON data for all countries respective to the year 2012 to 2017 and"
                          " identified by the indicator id given by the user and process the content into an"
-                         " internal data format and store it in the database")
+                         " internal data format and store it in the database."
+                         "Usage underlies the Terms and Conditions of the Worldbank Group:"
+                         "https://www.worldbank.org/en/about/legal/terms-and-conditions")
     @api.param("indicator_id", description="An Indicator to import. Must be from"
                                            " http://api.worldbank.org/v2/indicators "
                              , type='string')
@@ -226,9 +280,17 @@ class Collections(Resource):
             "indicator_id": str(result["indicator_id"])
         }
 
-    @api.response(200, "OK")
+    # Question 3 - Retrieve the list of available collections
+    @api.response(200, "Successfully retrieved the list of available collections", collectionCreatedModel)
+    @api.response(400, "order_by does not match syntax: "
+                       "?order_by={+id,+creation_time,+indicator,-id,-creation_time,-indicator}")
     @api.doc(description="Receive a list of available collections with option to sort the results")
-    @api.param("order_by", description="Orders the result. Syntax e.g: {+id,-creation_time}", type='string')
+    @api.param("order_by", description="order_by is a comma separated string value to sort "
+                                       "the collection based on the given criteria. Each "
+                                       "segment of this value indicates how the collection "
+                                       "should be sorted, and it consists of two parts (+ or -,"
+                                       " and the name of column e.g., id). In each segment, + "
+                                       "indicates ascending order, and - indicates descending order", type='string')
     def get(self):
         order_by: str = request.args.get("order_by")
         order_by_flag = False
@@ -262,9 +324,28 @@ class Collections(Resource):
 
 
 @api.route('/collections/<int:id>')
+@api.param("id", description="The unique integer identifier automatically generated for an imported collection")
 class CollectionsByID(Resource):
 
-    @api.response(200, "Ok")
+    # Question 2 - Deleting a collection with the data service
+    @api.response(200, "Collection deleted", deletionModel)
+    @api.response(404, "Collection id {} does not exist", errorModel)
+    @api.doc(description="This operation deletes an existing collection from the database")
+    def delete(self, id):
+        db: DBService = DBService.get_instance()
+        result = db.get_collection_by_id(id)
+        if result is None:
+            api.abort(404, "Collection id {} does not exist".format(id))
+
+        db.delete_collection_by_id(id)
+        return {
+            "message": "The collection {} was removed from the database!".format(id),
+            "id": id
+        }
+
+    # Question 4 - Retrieve a collection
+    @api.response(200, "Successfully retrieved collection", collectionWithDataModel)
+    @api.response(404, "Collection with id {} not found.", errorModel)
     @api.doc(description="This operation retrieves a collection by its ID . "
                          "The response of this operation will show the imported "
                          "content from world bank API for all 6 years.")
@@ -293,25 +374,59 @@ class CollectionsByID(Resource):
             "entries": entries
         }
 
-    @api.response(200, "Ok")
-    @api.doc(description="This operation deletes an existing collection from the database")
-    def delete(self, id):
-        db: DBService = DBService.get_instance()
-        result = db.get_collection_by_id(id)
-        if result is None:
-            api.abort(404, "Collection id {} does not exist".format(id))
 
-        db.delete_collection_by_id(id)
+@api.route('/collections/<int:id>/<int:year>/<string:country>')
+@api.param("id", description="The unique integer identifier automatically generated for an imported collection")
+@api.param("year", description="The year of the indicators value")
+@api.param("country", description="The country of the indicators value")
+class CollectionsByIDAndYearAndCountry(Resource):
+
+    # Question 5 - Retrieve economic indicator value for given country and a year
+    @api.response(200, "Successfully Retrieved economic indicator value for "
+                       "given country and a year", singleEconomicIndicatorValueModel)
+    @api.response(404,  "Collection id, year or country not found.", errorModel)
+    @api.doc(description=" Retrieve economic indicator value for given country and a year.")
+    def get(self, id, year, country):
+        db: DBService = DBService.get_instance()
+
+        if not db.collection_data_exists(id):
+            api.abort(404, "Collection with id {} not found.".format(id))
+
+        result_df = db.get_collection_data_df(id)
+        result_df = result_df.rename(columns={
+            "country_value": "country",
+            "indicator_id": "indicator",
+            "collections_id": "id",
+            "date": "year"
+        })
+        result_df = result_df.filter(["id", "indicator", "country", "year", "value"])
+        result_df = result_df[result_df["year"] == str(year)]
+        if not result_df["id"].count() >= 1:
+            api.abort(404, "Could not find data for year: {}".format(year))
+
+        result_df = result_df[result_df["country"] == country]
+        if not result_df["id"].count() >= 1:
+            api.abort(404, "Could not find data for country: {}".format(country))
+
         return {
-            "message": "The collection {} was removed from the database!".format(id),
-            "id": id
+            "id": id,
+            "indicator": result_df["indicator"].max(),
+            "country": result_df["country"].max(),
+            "year": year,
+            "value": result_df["value"].max()
         }
 
 
 @api.route('/collections/<int:id>/<int:year>')
+@api.param("id", description="The unique integer identifier automatically generated for an imported collection")
+@api.param("year", description="The year of the indicators value")
 class CollectionsByIDAndYear(Resource):
 
-    @api.response(200, "Ok")
+    #  Question 6 - Retrieve top/bottom economic indicator values for a given year
+    @api.response(200, "Successfully Retrieved economic indicator value for "
+                       "given country and a year", topBottomModel)
+    @api.response(400, "order_by invalid - Syntax: +N, N or -N, with N between 1 and 100")
+    @api.response(404, "Collection with id {} not found.")
     @api.doc(description=" Retrieve economic indicator value for given year with optional Top/Bottom query")
     @api.param("query",
                description="+N (or simply N) : Returns top N countries sorted by indicator value (highest first) "
@@ -357,42 +472,6 @@ class CollectionsByIDAndYear(Resource):
             "indicator": indicator,
             "indicator_value": indicator_value,
             "entries": entries
-        }
-
-
-@api.route('/collections/<int:id>/<int:year>/<string:country>')
-class CollectionsByIDAndYearAndCountry(Resource):
-
-    @api.response(200, "Ok")
-    @api.doc(description=" Retrieve economic indicator value for given country and a year.")
-    def get(self, id, year, country):
-        db: DBService = DBService.get_instance()
-
-        if not db.collection_data_exists(id):
-            api.abort(404, "Collection with id {} not found.".format(id))
-
-        result_df = db.get_collection_data_df(id)
-        result_df = result_df.rename(columns={
-            "country_value": "country",
-            "indicator_id": "indicator",
-            "collections_id": "id",
-            "date": "year"
-        })
-        result_df = result_df.filter(["id", "indicator", "country", "year", "value"])
-        result_df = result_df[result_df["year"] == str(year)]
-        if not result_df["id"].count() >= 1:
-            api.abort(404, "Could not find data for year: {}".format(year))
-
-        result_df = result_df[result_df["country"] == country]
-        if not result_df["id"].count() >= 1:
-            api.abort(404, "Could not find data for country: {}".format(country))
-
-        return {
-            "id": id,
-            "indicator": result_df["indicator"].max(),
-            "country": result_df["country"].max(),
-            "year": year,
-            "value": result_df["value"].max()
         }
 
 
