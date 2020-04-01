@@ -40,7 +40,7 @@ api = Api(app=app,
           default_mediatype="application/json")
 
 api_base_url = "http://api.worldbank.org/v2"
-api_sleep_seconds = 1   # Sleep to avoid hitting rate limit while iterating pages
+api_sleep_seconds = 1  # Sleep to avoid hitting rate limit while iterating pages
 database_name = "z5298989.db"
 query_year_start = 2012
 query_year_end = 2017
@@ -61,24 +61,24 @@ collectionWithDataModel = api.model('CollectionWithDataModel', {
         'country': fields.String(description="Country of the data entry"),
         'date': fields.Integer(description="Year of the data entry", min=2012),
         'value': fields.Float(description="Value of the data entry"),
-         })))
+    })))
 })
 
 singleEconomicIndicatorValueModel = api.model('SingleEconomicIndicatorValueModel', {
-   'id': fields.Integer(description='A unique integer identifier automatically generated ', min=1),
-   'indicator': fields.String(description='The indicator from http://api.worldbank.org/v2/indicators'),
-   'country': fields.String(description="Country of the data entry"),
-   'year': fields.Integer(description="Year of the data entry", min=2012),
-   'value': fields.Float(description="Value of the data entry"),
+    'id': fields.Integer(description='A unique integer identifier automatically generated ', min=1),
+    'indicator': fields.String(description='The indicator from http://api.worldbank.org/v2/indicators'),
+    'country': fields.String(description="Country of the data entry"),
+    'year': fields.Integer(description="Year of the data entry", min=2012),
+    'value': fields.Float(description="Value of the data entry"),
 })
 
 topBottomModel = api.model('TopBottomModel', {
-   'indicator': fields.String(description='The indicator from http://api.worldbank.org/v2/indicators'),
-   'indicator_value': fields.String(description='The indicator name'),
-   'entries': fields.List(fields.Nested(api.model('TopBottomDataEntryModel', {
+    'indicator': fields.String(description='The indicator from http://api.worldbank.org/v2/indicators'),
+    'indicator_value': fields.String(description='The indicator name'),
+    'entries': fields.List(fields.Nested(api.model('TopBottomDataEntryModel', {
         'country': fields.String(description="Country of the data entry"),
         'value': fields.Float(description="Value of the data entry"),
-         })))
+    })))
 })
 
 deletionModel = api.model('DeletionModel', {
@@ -121,25 +121,53 @@ class DBService:
                         creation_time DEFAULT CURRENT_TIMESTAMP,
                         min_year INTEGER,
                         max_year INTEGER,
-                        indicator_id TEXT UNIQUE 
+                        indicator_id TEXT UNIQUE,
+                        indicator_name TEXT
                       )
                 ''')
 
-    def store_collection(self, indicator_id, min_year, max_year, dataframe):
-        data = (indicator_id, min_year, max_year)
-        id = None
+    def store_collection(self, indicator_metadata, min_year, max_year, dataframe):
+        data = (indicator_metadata["id"], indicator_metadata["name"], min_year, max_year)
         with self.engine.begin() as connection:
-            connection.execute(''' INSERT INTO collections (indicator_id, min_year, max_year) VALUES(?,?,?)''', data)
-            result = connection.execute(''' SELECT id FROM collections where indicator_id = ?''', (indicator_id,))
-            id = result.fetchone()[0]
+            connection.execute(''' INSERT INTO collections (indicator_id, indicator_name, min_year, max_year) 
+                                    VALUES(?,?,?,?)''', data)
+            result = connection.execute(''' SELECT id FROM collections 
+                                            WHERE indicator_id = ?''', (indicator_metadata["id"],))
+            collection_id = result.fetchone()[0]
 
         newdf = dataframe.drop(columns=["indicator", "country"])
-        newdf["collections_id"] = id
-        newdf.to_sql('collection_' + str(id), con=self.engine, if_exists='replace')
+        newdf["collections_id"] = collection_id
+        newdf.to_sql('collection_' + str(collection_id), con=self.engine, if_exists='replace')
         # dtype={"indicator": str, "country": str, "countryiso3code": str, "date": int, "unit": str, "obs_status": str,
         # "indicator_id": str, "indicator_value": str, "country_id": str, "country_value": str})
-        print("DBService.store_collection: Stored ID " + str(id))
-        return id
+        print("DBService.store_collection: Stored ID " + str(collection_id))
+        return collection_id
+
+    def store_empty(self, indicator_metadata):
+        data = (indicator_metadata["id"], indicator_metadata["name"], query_year_start, query_year_end)
+        with self.engine.begin() as connection:
+            connection.execute(''' INSERT INTO collections (indicator_id,indicator_name, min_year, max_year) 
+                                    VALUES(?,?,?,?)''', data)
+            result = connection.execute(''' SELECT id FROM collections 
+                                            WHERE indicator_id = ?''', (indicator_metadata["id"],))
+            collection_id = result.fetchone()[0]
+            empty_ddl = '''CREATE TABLE IF NOT EXISTS collection_{}(	
+                           "index" BIGINT,
+                           countryiso3code TEXT,
+                           date TEXT,
+                           value FLOAT,
+                           unit TEXT,
+                           obs_status TEXT,
+                           decimal BIGINT,
+                           indicator_id TEXT,
+                           indicator_value TEXT,
+                           country_id TEXT,
+                           country_value TEXT,
+                           collections_id BIGINT)'''.format(collection_id)
+            connection.execute(empty_ddl)
+
+        print("DBService.store_collection: EMPTY DATASET. Stored ID " + str(collection_id))
+        return collection_id
 
     def delete_collection_by_id(self, collection_id):
         with self.engine.begin() as connection:
@@ -154,23 +182,23 @@ class DBService:
                 where indicator_id = ?''', (indicator_id,))
             return result.fetchone()
 
-    def get_collection_by_id(self, id):
+    def get_collection_by_id(self, collection_id):
         with self.engine.connect() as connection:
             result = connection.execute('''
-                select id, creation_time, indicator_id 
+                select id, creation_time, indicator_id, indicator_name 
                 from collections 
-                where id = ?''', (id,))
+                where id = ?''', (collection_id,))
             return result.fetchone()
 
-    def collection_data_exists(self, id):
-        if self.engine.has_table("collection_" + str(id)):
+    def collection_data_exists(self, collection_id):
+        if self.engine.has_table("collection_" + str(collection_id)):
             return True
         return False
 
-    def get_collection_data_df(self, id):
+    def get_collection_data_df(self, collection_id):
         with self.engine.connect() as connection:
             df = pd.read_sql_table(con=connection,
-                                   table_name="collection_" + str(id))
+                                   table_name="collection_" + str(collection_id))
             return df
 
     # {+id,-creation_time,-indicator}
@@ -218,9 +246,6 @@ class APIService:
 
     latest_metadata = None
 
-    def __init__(self):
-        db = DBService.get_instance()
-
     @staticmethod
     def indicator_exists(indicator):
         url = "http://api.worldbank.org/v2/indicator/{}?format=json".format(indicator)
@@ -231,6 +256,13 @@ class APIService:
             return False
         return True
 
+    @staticmethod
+    def get_indicator_metadata(indicator):
+        url = "http://api.worldbank.org/v2/indicator/{}?format=json".format(indicator)
+        json_url = urlopen(url)
+        result: json = json.loads(json_url.read())
+        return result[1][0]
+
     def get_all_by_indicator_and_date(self, indicator, date_start, date_end):
         query_url = api_base_url + "/countries/all/indicators/" + indicator + "?per_page=10000"
         query_url = self.date_range(query_url, date_start, date_end)
@@ -238,7 +270,7 @@ class APIService:
 
         print("APIService.get_all_by_indicator_and_date: query_url=" + query_url)
 
-        json_url = urlopen(query_url)
+        json_url = urlopen(query_url, timeout=30)
         result = json.loads(json_url.read())
         self.latest_metadata = result.pop(0)
 
@@ -292,8 +324,7 @@ class Collections(Resource):
                          "Usage underlies the Terms and Conditions of the Worldbank Group:"
                          "https://www.worldbank.org/en/about/legal/terms-and-conditions")
     @api.param("indicator_id", description="An Indicator to import. Must be from"
-                                           " http://api.worldbank.org/v2/indicators "
-                             , type='string')
+                                           " http://api.worldbank.org/v2/indicators", type='string')
     def post(self):
         indicator_id = request.args.get("indicator_id")
         if indicator_id is None or indicator_id == "":
@@ -308,12 +339,17 @@ class Collections(Resource):
         if result is not None:
             api.abort(409, "Indicator {} already exists in collections".format(indicator_id))
 
-        df = pd.DataFrame(ext_api.get_all_by_indicator_and_date(indicator_id, query_year_start, query_year_end))
-        df = DataTransUtils.flatten_collections_df(df)
+        api_indicator_metadata = ext_api.get_indicator_metadata(indicator_id)
+        api_result = ext_api.get_all_by_indicator_and_date(indicator_id, query_year_start, query_year_end)
 
-        id = db.store_collection(indicator_id, query_year_start, query_year_end, df)
+        if api_result is None:
+            stored_id = db.store_empty(api_indicator_metadata)
+        else:
+            df = pd.DataFrame(api_result)
+            df = DataTransUtils.flatten_collections_df(df)
+            stored_id = db.store_collection(api_indicator_metadata, query_year_start, query_year_end, df)
 
-        result = db.get_collection_by_id(id)
+        result = db.get_collection_by_id(stored_id)
 
         return {
             "uri": "/collections/" + str(result["id"]),
@@ -400,8 +436,8 @@ class CollectionsByID(Resource):
         result_md = db.get_collection_by_id(id)
         result_df = db.get_collection_data_df(id)
 
-        indicator = result_df["indicator_id"].max()
-        indicator_value = result_df["indicator_value"].max()
+        indicator = result_md["indicator_id"]
+        indicator_value = result_md["indicator_name"]
 
         result_df = result_df.rename(columns={"country_value": "country"})
         result_df = result_df.filter(["country", "date", "value"])
@@ -426,7 +462,7 @@ class CollectionsByIDAndYearAndCountry(Resource):
     # Question 5 - Retrieve economic indicator value for given country and a year
     @api.response(200, "Successfully Retrieved economic indicator value for "
                        "given country and a year", singleEconomicIndicatorValueModel)
-    @api.response(404,  "Collection id, year or country not found.", errorModel)
+    @api.response(404, "Collection id, year or country not found.", errorModel)
     @api.doc(description=" Retrieve economic indicator value for given country and a year.")
     def get(self, id, year, country):
         db: DBService = DBService.get_instance()
@@ -474,7 +510,7 @@ class CollectionsByIDAndYear(Resource):
                description="+N (or simply N) : Returns top N countries sorted by indicator value (highest first) "
                            "-N : Returns bottom N countries sorted by indicator value "
                            " where N can be an integer value between 1 and 100",
-                type='string')
+               type='string')
     def get(self, id, year):
         query: str = request.args.get("q")
         pattern = re.compile("^[+-]{0,1}\d{1,3}$")
@@ -495,10 +531,11 @@ class CollectionsByIDAndYear(Resource):
         if not db.collection_data_exists(id):
             api.abort(404, "Collection with id {} not found.".format(id))
 
+        result_md = db.get_collection_by_id(id)
         result_df = db.get_collection_data_df(id)
 
-        indicator = result_df["indicator_id"].max()
-        indicator_value = result_df["indicator_value"].max()
+        indicator = result_md["indicator_id"]
+        indicator_value = result_md["indicator_name"]
 
         result_df = result_df.rename(columns={"country_value": "country"})
         result_df = result_df[result_df["date"] == str(year)]
@@ -506,7 +543,8 @@ class CollectionsByIDAndYear(Resource):
 
         entries = []
         if query_flag:
-            entries = json.loads(result_df.sort_values("value", ascending=bottom_flag).head(query_number).to_json(orient='records'))
+            entries = json.loads(
+                result_df.sort_values("value", ascending=bottom_flag).head(query_number).to_json(orient='records'))
         else:
             entries = json.loads(result_df.to_json(orient='records'))
 
